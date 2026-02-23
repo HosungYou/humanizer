@@ -6,10 +6,35 @@ build-backend = "hatchling.build"
 name = "humanizer-mcp"
 version = "2.1.0"
 description = "MCP server for precise stylometric metrics in academic text humanization"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.10"
+authors = [
+    { name = "Hosung You", email = "hosungyou@gmail.com" },
+]
+keywords = ["mcp", "stylometrics", "humanization", "academic-writing", "nlp", "burstiness", "mtld"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Text Processing :: Linguistic",
+]
 dependencies = [
     "mcp[cli]>=1.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/HosungYou/humanizer"
+Repository = "https://github.com/HosungYou/humanizer"
+Issues = "https://github.com/HosungYou/humanizer/issues"
+Changelog = "https://github.com/HosungYou/humanizer/blob/main/RELEASE_NOTES.md"
 
 [project.scripts]
 humanizer-mcp = "humanizer_mcp.server:main"

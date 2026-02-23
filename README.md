@@ -1,98 +1,89 @@
-# Diverga Humanization Pipeline Upgrade Research
+# humanizer-mcp
 
-## Overview
+MCP server for precise stylometric metrics in academic text humanization.
 
-This repository is a separate documentation repository that preserves research discussions and improvement proposals for the Diverga humanization pipeline upgrade. It is not included in the global Diverga deployment, and documents insights and recommendations derived from analyzing structural limitations of the pipeline and designing next-generation architecture.
+Replaces LLM estimation of burstiness, MTLD, and other quantitative metrics with exact algorithmic computation. Designed for the [Diverga](https://github.com/HosungYou/Diverga) humanization pipeline (G5/G6/F5 agents).
 
----
+## Installation
 
-## Research Background
+### Via Diverga Plugin (Recommended)
 
-During the humanization of two academic papers, structural limitations were identified in the current G5→G6→F5 pipeline.
+Install the [Diverga plugin](https://github.com/HosungYou/Diverga) for Claude Code — the humanizer MCP server is included automatically.
 
-### Target Papers
+### Standalone via uvx
 
-| Paper | Topic | Target Journal | Impact Factor (IF) |
-|-------|-------|-----------------|-------------------|
-| Paper 1 | Occupational Identity Threat | TFSC (Technological Forecasting and Social Change) | ~12.0 |
-| Paper 2 | Epistemic Cognition | IJAIED (International Journal of AI in Education) | ~4.7 |
-
-### Score Progression
-
-Both papers required three rounds of manual intervention to reach acceptable AI detection scores.
-
-**Paper 1 (TFSC):**
-
-| Round | AI Detection Score |
-|-------|-------------------|
-| Round 1 | 80% |
-| Round 2 | 62% |
-| Round 3 | 31% |
-
-**Paper 2 (IJAIED):**
-
-| Round | AI Detection Score |
-|-------|-------------------|
-| Round 1 | 82% |
-| Round 2 | 61% |
-| Round 3 | 22% |
-
-### Key Findings
-
-The breakthrough in Round 3 was achieved through deep structural deconstruction. In this process, it became clear that after vocabulary cleanup, **structural patterns rather than words** are the primary AI detection signals.
-
----
-
-## Repository Structure
-
-```
-humanizer/
-├── README.md                      # This document. Summary of research background and key findings.
-├── article/                       # Research discussions and analysis documents
-│   └── (paper-by-paper analysis, round-by-round improvement records, etc.)
-└── roadmap/                       # Pipeline upgrade roadmap documents
-    └── (G5 v2.0, G6 v2.0, iterative pipeline design proposals, etc.)
+```bash
+uvx humanizer-mcp
 ```
 
----
+### Standalone via pip
 
-## Key Findings
+```bash
+pip install humanizer-mcp
+```
 
-### 1. Limitations of G6's Vocabulary-Level Transformation
+## Claude Code Configuration
 
-The current G6 agent's word/phrase-level transformation reaches a ceiling at approximately 60% AI detection rate after vocabulary cleanup. Meaningful reduction in detection rates cannot be achieved through vocabulary replacement alone.
+Add to `~/.claude/settings.json`:
 
-### 2. Structural Patterns as Primary Detection Signals
+```json
+{
+  "mcpServers": {
+    "humanizer": {
+      "command": "uvx",
+      "args": ["humanizer-mcp"]
+    }
+  }
+}
+```
 
-After vocabulary cleanup, the primary signals detected by AI detectors are structural fingerprints:
+## Tools
 
-- **Enumeration Fingerprints**: First/second/third structures, parallel listing patterns
-- **Formulaic Paragraph Architecture**: Uniform paragraph structure with topic sentence, development, and conclusion
-- **Hypothesis Checklists**: AI-specific hypothesis presentation and verification order
-- **Uniform Sentence Length**: Artificial uniformity in sentence length distribution
+| Tool | Purpose |
+|------|---------|
+| `humanizer_metrics` | Full stylometric analysis: burstiness CV, MTLD, Fano factor, opener diversity, hedge density, composite score |
+| `humanizer_verify` | Before/after comparison with regression detection and `needs_another_pass` recommendation |
+| `humanizer_diff` | Per-metric delta report with improvement percentages |
+| `humanizer_status` | Readiness assessment with discipline-specific calibration |
 
-### 3. Three-Axis Upgrade Proposal
+## Metrics
 
-To overcome the identified limitations, we propose the following three-axis upgrade:
+| Metric | Algorithm | Human Baseline | AI Typical |
+|--------|-----------|---------------|------------|
+| Burstiness CV | SD / Mean of sentence word counts | > 0.45 | < 0.30 |
+| MTLD | Forward + backward pass, TTR threshold 0.72 | > 80 | < 60 |
+| Fano Factor | Variance / Mean of sentence lengths | > 1 | < 1 |
+| Sentence Length Range | max - min word count | > 25 | < 15 |
+| Opener Diversity | unique first-3-words / total paragraphs | > 0.70 | < 0.50 |
+| Hedge Density | hedge words / sentence count | varies | high |
+| Composite Score | Weighted (pattern 60% + burstiness 20% + vocab 10% + structural 10%) | < 30% | > 60% |
 
-| Axis | Component | Description |
-|------|-----------|-------------|
-| Axis 1 | Enhanced Detection (G5 v2.0) | Introduction of metrics that quantitatively measure structural fingerprints alongside vocabulary cleanup |
-| Axis 2 | Structural Transformation (G6 v2.0) | Addition of Layer 3 (structural deconstruction layer) to vocabulary transformation to restructure paragraph architecture itself |
-| Axis 3 | Iterative Pipeline | Transition from single-pass pipeline to multi-pass structure with feedback loops |
+## Discipline Calibration
 
----
+| Discipline | Burstiness Threshold | MTLD Threshold |
+|------------|---------------------|----------------|
+| Default | 0.45 | 80 |
+| Psychology | 0.40 | 75 |
+| Management | 0.42 | 78 |
+| Education | 0.43 | 76 |
 
-## Related Links
+Pass `discipline="psychology"` to any tool for field-specific thresholds.
 
-- **Diverga Plugin**: https://github.com/HosungYou/Diverga
-- **AI_Polarization_Pew**: [https://github.com/HosungYou/AI_Polarization_Pew](https://github.com/HosungYou/AI_Polarization_Pew)
+## Development
 
----
+```bash
+git clone https://github.com/HosungYou/humanizer.git
+cd humanizer
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+pytest tests/ -v
+```
 
-## Copyright and Author Information
+## License
 
-All content in this repository is created for the purpose of preserving research records. Unauthorized reproduction and distribution are prohibited.
+MIT
 
-Author: Hosung You
-Start Date: February 2026
+## Links
+
+- [Diverga Plugin](https://github.com/HosungYou/Diverga)
+- [Release Notes](https://github.com/HosungYou/humanizer/blob/main/RELEASE_NOTES.md)
