@@ -419,7 +419,472 @@ Watermarking provides mathematically guaranteed detection, but cooperation from 
 
 ---
 
+## 9. New Detection Methods (2024-2025)
+
+Since the original review, several detection approaches have emerged that represent fundamental advances beyond perplexity/classifier/watermarking paradigms.
+
+### 9.1 Fast-DetectGPT (ICLR 2024)
+
+Replaces DetectGPT's expensive perturbation-based scoring with **conditional probability curvature** — evaluating the shape of a model's conditional probability distribution rather than requiring hundreds of perturbations. Surpasses DetectGPT by ~75% in both white-box and black-box settings while being **340x faster**. Its reliance on probability curvature means that paraphrasing which increases local token diversity (higher conditional entropy) is an effective evasion lever.
+
+### 9.2 Binoculars (ICML 2024)
+
+Uses a **contrastive dual-model scoring** approach pairing a "scorer" and an "observer" language model, computing a ratio of their per-token log-probabilities. Achieves >90% TPR at 0.01% FPR. Zero-shot, domain-agnostic, requires no training data. Because it measures **relative** predictability across two models, simple vocabulary substitution is ineffective — humanization must target the cross-model predictability gap simultaneously.
+
+### 9.3 DNA-GPT (ICLR 2024)
+
+Divergent N-Gram Analysis. Truncates text at a midpoint, re-generates the continuation using the same LLM, then measures n-gram divergence between original and regenerated continuations. The key insight: an LLM will regenerate similar continuations from the same prefix. Humanized text breaks this property by introducing lexical and structural unpredictability. Critically, humanization pipelines that only modify the **beginning** of text are vulnerable — DNA-GPT specifically exploits continuation predictability.
+
+### 9.4 Ghostbuster (NAACL 2024)
+
+Passes documents through a series of progressively weaker language models (unigram, trigram, GPT-ada, GPT-davinci), computes per-token probabilities under each, then uses structured feature selection to train a classifier. Achieves 99.0 F1 cross-domain. The **multi-model probability profile** is difficult to spoof because it requires making text simultaneously low-probability under multiple model families — a key adversarial gap in current humanization approaches.
+
+### 9.5 RADAR (NeurIPS 2023, actively benchmarked 2025)
+
+Jointly trains a paraphraser and a detector in an **adversarial loop** — the paraphraser tries to evade detection, the detector adapts. Improves AUROC by 31.64% over prior methods against unseen paraphrasers. However, the 2025 adversarial paraphrasing paper (Section 11.1) still reports a 64.49% detection rate reduction on RADAR, showing the limits of adversarial training alone.
+
+### 9.6 MoSEs: Mixture of Stylistics Experts (2025)
+
+Uncertainty-aware detection using a mixture-of-experts architecture over stylistic features. Enables conditional threshold estimation per input — adapting the decision boundary based on the stylistic uncertainty profile of each document. Humanized text with high stylistic uncertainty may receive different classification than confidently-AI text.
+
+### 9.7 DivEye: Surprisal-Based Diversity Features (NeurIPS 2025)
+
+Rather than measuring surface features, DivEye operates on **token-level surprisal sequences** and derives nine statistical features in three groups:
+
+| Group | Metrics | What They Capture |
+|---|---|---|
+| Distributional | Mean surprisal (μS), Variance (σS²), Skewness (γ1), Kurtosis (γ2) | Aggregate unpredictability distribution |
+| First-order differences | Mean (Δμ), Variance (Δσ²) | Magnitude and variability of surprisal shifts |
+| Second-order differences | Variance (σΔ²²), Entropy (ℋΔ²), Autocorrelation (ρ) | Erratic stylistic transitions, irregularity |
+
+**Key finding**: Second-order difference features contribute **39.4%** of classification importance. Human writing shows abrupt, clustered shifts in predictability; AI text is statistically smoother. This is model-agnostic and zero-shot.
+
+---
+
+## 10. Updated Commercial Detector Landscape (2025)
+
+### 10.1 GPTZero — Models 3.7b and 3.8b (August 2025)
+
+- Expanded coverage to GPT-4.1, o3, Gemini 2.5, Claude Sonnet 4, with initial GPT-5 detection
+- Claimed accuracy: 96.8% on GPT-4.1, 99.1% on Claude Sonnet 4 at 1% FPR
+- Sentence, paragraph, and document-level simultaneous detection
+- New hallucination detector: found 50+ hallucinations in ICLR 2026 submissions missed by peer reviewers
+- **Limitation**: Performance degrades substantially on paraphrased or heavily edited text
+
+### 10.2 Originality.ai — Turbo 3.0.2, Academic 0.0.5 (September 2025)
+
+- Largest model launch in their history (September 2025)
+- Turbo 3.0.2: 99%+ accuracy on flagship models; up to **97% accuracy on humanized content**
+- Academic 0.0.5: Domain-specific model for academic writing
+- Multilingual Model 2.0.0 (May 2025): 30 languages
+- FTC caution (2025): Regulatory scrutiny on 99%+ claims without third-party validation
+
+### 10.3 Turnitin — October 2025 Model Update
+
+- Improved recall while reducing false positives; FPR reduced ~40% vs prior versions
+- Deliberate design: catches ~85% of AI content, intentionally passes ~15% to avoid false accusations
+- **Known bias**: Higher flag rates for ESL writers and neurodivergent students
+- Independent tests: 2-5% real-world FPR (Washington Post testing found up to 50% FPR in limited samples)
+
+### 10.4 Copyleaks — v3 (May 2025)
+
+- Claimed: 99.1% accuracy detecting AI; 99.4% confirming human; 0.2% FPR
+- New feature: **AI Source Match** — identifies online sources suspected to be AI-generated
+- Independent testing (Scribbr 12-tool comparison): ~66% overall accuracy in real-world conditions
+
+**Key 2025 Observation**: Vendor accuracy claims remain dramatically divergent from independent testing. All major detectors now claim >99% accuracy, while independent benchmarks consistently show 60-85% real-world accuracy, particularly on paraphrased or edited content.
+
+---
+
+## 11. Adversarial Evasion Research (2025)
+
+### 11.1 Adversarial Paraphrasing: A Universal Attack (NeurIPS 2025)
+
+The most comprehensive adversarial attack paper of 2025. Uses an off-the-shelf instruction-following LLM to paraphrase under real-time guidance from a target detector — the detector's score steers paraphrase selection.
+
+| Metric | Result |
+|---|---|
+| Average TPR reduction | **87.88%** across 8 detectors |
+| RADAR bypass | 64.49% TPR reduction |
+| Fast-DetectGPT bypass | **98.96%** TPR reduction |
+| Quality rating | 87% rated 4-5/5 by GPT-4o |
+| Output perplexity | 14.26 ± 4.97 vs human 15.02 ± 7.71 |
+
+**Key mechanism**: Because all major detectors converge toward a common model of human-language distributions, steering away from one detector's decision boundary transfers to others — making the attack universally effective.
+
+### 11.2 TempParaphraser (EMNLP 2025)
+
+High-temperature sampling dramatically reduces detection accuracy by increasing token-level diversity. TempParaphraser simulates high-temperature effects at normal temperature by generating multiple paraphrases per sentence and selecting the most diverse combination. Achieves **82.5% reduction** in detector accuracy while preserving text quality.
+
+**Theoretical basis**: Higher effective temperature increases token-level entropy, pushing text away from the low-perplexity zone that detectors target.
+
+### 11.3 GradEscape (USENIX Security 2025)
+
+First gradient-based evasion attack. Overcomes discrete text non-differentiability by constructing weighted token embeddings as a proxy gradient surface. Only **139M parameters** yet outperforms an 11B paraphrase model. Successfully tested against commercial detectors.
+
+### 11.4 Counter-Detection: Evasion Traces as Detection Signal (2025)
+
+An emerging defense detects adversarially-perturbed AI text by measuring the **magnitude and pattern of perturbations** applied during evasion. The insight: evasion attacks leave detectable traces in the perturbation profile that differ from natural human revision patterns. This signals an arms race where the evasion process itself becomes a detection signal.
+
+---
+
+## 12. Discourse-Level Structural Detection
+
+### 12.1 Discourse Motifs via RST (ACL 2024)
+
+The most important structural detection paper for humanization pipeline design. Models hierarchical discourse structure using Rhetorical Structure Theory (RST). Extracts "discourse motifs" — recurring subgraph patterns from RST trees.
+
+**Key finding**: Human-written texts exhibit **significantly more structural variability** in their discourse motifs than LLM-generated texts. Discourse motif features improve classifiers even on out-of-distribution and paraphrased samples, making this one of the most **evasion-resistant** detection signals.
+
+**Critical gap identified**: Discourse motif diversity is not addressed by any current humanization approach.
+
+### 12.2 DTransformer: PDTB-Based Document-Level Detection (December 2024)
+
+Integrates Penn Discourse TreeBank (PDTB) preprocessing to encode discourse relations between clauses and paragraphs — explicit connectives, implicit relations, and entity-based coherence.
+
+Results on paraphrased long-form text:
+- **+15.5%** improvement on paraLFQA (long-form QA)
+- **+4.0%** on paraWP (writing prompts)
+
+**Key insight**: AI text generates discourse that is *locally coherent but globally formulaic*. PDTB-encoded features capture rhetorical relation patterns across the full document, which paraphrasing cannot easily destroy.
+
+### 12.3 Sci-SpanDet: Section-Conditional Academic Detection (2025)
+
+Structure-aware detection specifically for scholarly text. Abstracts each paper as a **writing-style graph** where nodes are paragraphs and edges encode section membership. Applies section-conditioned stylistic modeling within IMRaD structure.
+
+Results: F1(AI) = 80.17, AUROC = 92.63, Span-F1 = 74.36, ECE = 0.06.
+
+**Implication**: Methods sections and Results sections are profiled differently — humanization pipelines for academic text must vary their approach by section type. This validates the section-aware mode escalation proposed in the G6 v2.0 upgrade.
+
+### 12.4 Observable Discourse Patterns in AI Text (Confirmed 2025)
+
+1. **Uniform paragraph length** — AI paragraphs cluster tightly around mean length; human paragraphs have high variance
+2. **List-like argumentative structure** — AI defaults to enumeration even in prose contexts
+3. **Topic sentence + support + transition template** rigidly repeated
+4. **Lack of digression** — humans naturally embed anecdotes and parenthetical commentary
+5. **Connective overuse** — "furthermore," "moreover," "in conclusion" at elevated rates
+6. **Absence of retrospective reference** — humans refer back non-formulaically; AI uses formulaic summary phrases
+
+---
+
+## 13. New Stylometric Metrics and Frameworks (2025)
+
+### 13.1 Psycholinguistic 31-Feature Framework
+
+Maps stylometric features to cognitive theories of human writing:
+
+| Category | Features |
+|---|---|
+| Lexical (6) | Word count, unique words, character count, avg word length, TTR, hapax legomenon rate |
+| Syntactic (9) | Sentence count, avg sentence length, punctuation count, stop words, complex sentences, questions, exclamations, contractions, abstract nouns |
+| Sentiment (4) | Emotion words, polarity, subjectivity, VADER compound |
+| Readability (2) | Flesch Reading Ease, Gunning Fog Index |
+| Named Entity (4) | First-person pronouns, direct address, person entities, date entities |
+| Uniqueness (2) | Unique n-gram count, syntactic variety |
+
+**Theoretical grounding**: Human writing reflects cognitive load (working memory constraints), metacognitive self-monitoring, lexical retrieval from lived experience, and hierarchical discourse planning — all absent in LLMs.
+
+### 13.2 Key New Metrics to Implement
+
+| Metric | What It Measures | Human vs AI |
+|---|---|---|
+| **Hapax legomenon rate** | Proportion of words appearing exactly once | Higher in human text |
+| **Contraction density** | Frequency of contractions (don't, isn't, we've) | Much higher in human text |
+| **Abstract noun density** | Frequency of abstract nouns | AI overuses abstract nouns |
+| **Surprisal kurtosis** | Tail heaviness of token surprisal distribution | Higher in human (extreme shifts) |
+| **2nd-order surprisal autocorrelation** | Clustering of unpredictability shifts | Higher in human (bursty shifts) |
+| **Bigram uniqueness score** | Proportion of unique bigrams | Higher in human text |
+| **Verb ratio** | Concrete verbs vs nominalizations | Humans use more concrete verbs |
+
+### 13.3 NEULIF: Lightweight Detection Framework
+
+A compact CNN + Random Forest trained on ~68 stylometric and readability features achieves **97% accuracy** using under 10^5 parameters — matching heavyweight transformer ensembles at a fraction of the cost. This validates that stylometric features alone, without perplexity, are sufficient for high-accuracy detection.
+
+### 13.4 Composite Scoring Architecture (AAAI 2025)
+
+Three-stream fusion achieving F1 = 0.994:
+
+```
+Stream 1: [RoBERTa AI-detector embeddings]
+Stream 2: [11 stylometric features (burstiness, POS freq, punctuation entropy)]
+Stream 3: [E5 semantic embeddings]
+→ Concatenation → Fully connected → Binary/multiclass prediction
+```
+
+Stylometric features contributed measurably over the embedding-only baseline (F1 = 0.949 → 0.994).
+
+---
+
+## 14. Benchmark Datasets (2024-2025)
+
+### 14.1 RAID — Robust AI-Generated Text Detection (ACL 2024 / COLING 2025)
+
+The definitive benchmark. Contains over **6 million generations** spanning 11 generators, 8 domains, 11 adversarial attacks, and 4 decoding strategies. Maintains a public leaderboard. Key finding: current detectors are easily fooled by adversarial attacks and sampling strategy variations.
+
+### 14.2 M4GT-Bench (EACL 2024)
+
+Multi-generator, multi-domain, multi-lingual benchmark. Three tasks: binary detection, generator attribution, and mixed human-machine detection. Key finding: detectors fail to generalize to unseen domains or LLMs.
+
+### 14.3 HC3 Plus (Updated October 2024)
+
+Extends HC3 with HC3-SI (Semantic-Invariance subset) covering summarization, translation, and paraphrasing. Key finding: detecting AI in **semantic-invariant tasks** (where meaning is preserved across paraphrase) is significantly harder — the exact scenario humanization pipelines create.
+
+### 14.4 HACo-Det (June 2025)
+
+Specifically addresses human-AI coauthored texts with word-level attribution labels. Finding: metric-based methods (perplexity, n-gram) fail at fine-grained detection (avg F1 = 0.462). Validates that **sentence-level interleaving** of AI and human contributions defeats metric-based detectors.
+
+### 14.5 Fine-Grained Sentence Segmentation (September 2025)
+
+Sentence-level Transformer + CRF model that detects **transition points** where authorship shifts from human to AI. Effective counter to partial humanization strategies that only modify selected paragraphs.
+
+---
+
+## 15. Watermarking Developments (2025)
+
+### 15.1 SynthID-Text Updates
+
+Google DeepMind launched the **SynthID Detector portal** (May 2025) — a unified tool identifying AI-generated content across all modalities. Over **10 billion pieces** of content watermarked as of mid-2025. Access is waitlisted for journalists and researchers. SynthID Text was open-sourced in October 2024 via the Google Responsible GenAI Toolkit.
+
+### 15.2 OpenAI Watermarking — Shelved
+
+OpenAI formally abandoned text watermarking for ChatGPT:
+- Internal survey: ~30% of users would reduce usage if watermarked
+- Ethical concern: disproportionate harm to non-native English speakers
+- Easy circumvention via translation, paraphrasing, character injection
+
+In April 2025, researchers detected systematic Narrow No-Break Space (NNBSP) characters in GPT-o3/o4-mini outputs. OpenAI attributed this to "a quirk of reinforcement learning," not intentional watermarking.
+
+### 15.3 SIRA — Self-Information Rewrite Attack (ICML 2025)
+
+The most significant watermark attack paper of 2025:
+- **Nearly 100% attack success rate** against seven watermarking algorithms
+- Cost: approximately **$0.88 per million tokens**
+- Method: identifies high-entropy "pattern tokens" where watermarks are embedded, then uses fill-in-the-blank LLM rewrite to replace them
+- Transfers to any LLM, including mobile-level models
+- Open-source under MIT License
+
+This demonstrates that technical watermarking alone cannot be the policy solution.
+
+### 15.4 C2PA 2.1/2.2 and Content Credentials
+
+C2PA 2.1 introduced digital watermarks as "soft bindings." C2PA 2.2 followed in April 2025. Primary strength remains image/video/audio — text coverage is still indirect. Google is integrating SynthID alongside C2PA as complementary systems. The specification is on track for ISO standardization by 2025-2026.
+
+---
+
+## 16. Regulatory and Policy Developments (2025-2026)
+
+### 16.1 EU AI Act — Article 50 (August 2026 Enforcement)
+
+The most consequential regulatory development. The December 2025 Draft Code of Practice requires:
+
+- **Multi-layer mandatory approach**: metadata + imperceptible watermarking + cryptographic methods
+- **Detector obligation**: providers must implement detectors accessible via API/UI
+- **Terms of service**: must prohibit watermark removal
+- **Open-weight models**: recommended to implement structural marking during training
+
+Timeline: First draft (December 2025) → Second draft (March 2026) → Final code (June 2026) → Article 50 enforcement (**August 2026**).
+
+### 16.2 US Federal Position
+
+The December 2025 Executive Order focused on preempting state-level AI regulations — no new watermarking or detection mandates. The regulatory posture has shifted toward enabling AI development rather than imposing transparency requirements.
+
+### 16.3 University Policy Changes (2025-2026)
+
+The institutional trend continues to move **away from detection-based enforcement**:
+
+Universities that disabled/opted out of AI detection: Yale, Vanderbilt, Johns Hopkins, Northwestern, UCLA, UC San Diego, NYU, Oregon State, RIT, San Francisco State, Michigan State, UT Austin.
+
+**Stanford (October 2025)**: Academic Integrity Working Group concluded that AI detection tools are "unsuitable for high-stakes situations, especially as evidence in academic misconduct cases" due to bias and false positives. Recommendation: redesign assessments (oral exams, in-class writing) rather than surveil.
+
+**Chinese universities (February 2025)**: Moving in the opposite direction — tightening AI usage rules with more prescriptive guidance.
+
+### 16.4 Non-Native Speaker Bias — 2025 Confirmation
+
+A peer-reviewed study in PeerJ Computer Science (June 2025) provides the most rigorous 2025 confirmation: AI detection tools show significant accuracy-bias trade-offs that disproportionately impact non-native English speakers. Tools optimized for accuracy against AI content increase false positives for ESL writers.
+
+The foundational Liang et al. (2023) finding — >61% of TOEFL essays flagged as AI — has not been refuted. The UC Berkeley D-Lab published commentary framing this bias as creating "bad students" out of non-native speakers.
+
+---
+
+## 17. Updated Evidence-Based Conclusions (2025-2026)
+
+Building on the original seven conclusions, the 2025-2026 research landscape adds the following:
+
+### Conclusion 8: Discourse-level structural patterns are the most evasion-resistant detection signal
+
+RST discourse motifs, PDTB coherence relations, and paragraph architecture survive paraphrasing more robustly than any other feature type. Effective humanization must include **structural transformation at the discourse level** — not just vocabulary and sentence-level modifications. This is the single largest gap in all current humanization approaches.
+
+### Conclusion 9: No single detector is robust against adversarial attack
+
+The NeurIPS 2025 adversarial paraphrasing paper achieved 87.88% average TPR reduction across 8 detectors. Even RADAR (adversarially trained) fell 64.49%. Multi-signal ensemble systems (stylometric + semantic + classifier) offer the strongest defense but remain vulnerable to coordinated multi-dimensional manipulation.
+
+### Conclusion 10: Feature-based detection no longer requires the generating model
+
+DivEye, NEULIF, and StyloMetrix-based classifiers achieve 94-97% accuracy using only text-surface features — no LLM API access needed. This means humanization must transform the **distributional signature** of text, not merely reduce perplexity.
+
+### Conclusion 11: Section-conditional detection is now operational for academic text
+
+Sci-SpanDet (2025) applies IMRaD-section-specific detection profiles. Methods sections and Discussion sections are profiled differently. Humanization pipelines must adopt **section-aware** transformation strategies — a single approach applied uniformly will be detected.
+
+### Conclusion 12: Watermark removal is a solved problem for motivated adversaries
+
+SIRA (ICML 2025) achieves near-100% watermark removal at $0.88 per million tokens. Combined with OpenAI's decision to shelve watermarking, the research consensus is that watermarking cannot be the sole policy solution.
+
+### Conclusion 13: The regulatory landscape is diverging
+
+The EU is moving toward mandatory watermarking (Article 50, August 2026). The US has shifted toward enabling AI development. University policies are moving away from detection-based enforcement. This fragmented landscape means humanization tools operate in a legally uncertain environment.
+
+---
+
 ## References
+
+### Original References (1-36)
+
+1. Liang, W., Yuksekgonul, M., Mao, Y., Wu, E., & Zou, J. (2023). GPT detectors are biased against non-native English writers. *arXiv:2304.02819*.
+
+2. Krishna, K., Song, Y., Karpinska, M., Wieting, J., & Iyyer, M. (2023). Paraphrasing evades detectors of AI-generated text. *NeurIPS*. *arXiv:2303.13408*.
+
+3. Adversarial Paraphrasing (2025). A Universal Attack for Humanizing AI-Generated Text. *arXiv:2506.07001*.
+
+4. Contrastive Paraphrase Attacks on LLM Detectors (2025). *arXiv:2505.15337*.
+
+5. On the Detectability of LLM-Generated Text (2025). *arXiv:2510.20810*.
+
+6. Feature-Based Detection: Stylometric and Perplexity Markers (2024). *ResearchGate*.
+
+7. Detecting AI-Generated Text with Pre-Trained Models (2024). *ACL Anthology*.
+
+8. Delving into ChatGPT usage in academic writing through excess vocabulary (2024). *arXiv:2406.07016*.
+
+9. SynthID-Text: Scalable watermarking for LLM outputs (2024). *Nature*.
+
+10. AI watermarking must be watertight (2024). *Nature News*.
+
+11. Watermarking for AI-Generated Content: SoK (2024). *arXiv:2411.18479*.
+
+12. Cryptographic watermarks (2024). *Cloudflare*.
+
+13. Lexical diversity, syntactic complexity: ChatGPT vs L2 students (2025). *Frontiers in Education*.
+
+14. More human than human? ChatGPT and L2 writers (2024). *De Gruyter*.
+
+15. McCarthy, P. M., & Jarvis, S. (2010). MTLD, vocd-D, and HD-D: A validation study of sophisticated approaches to lexical diversity assessment. *Behavior Research Methods*, 42(2), 381-392.
+
+16. MATTR: Pros and cons (2024). *ResearchGate*.
+
+17. Vocabulary Quality in NLP: Autoencoder-Based Framework (2024). *Springer*.
+
+18. Hedging Devices in AI vs. Human Essays (2024). *SCIRP*.
+
+19. AI and human writers share stylistic fingerprints (2024). *Johns Hopkins Hub*.
+
+20. Accuracy-bias trade-offs in AI text detection and scholarly publication fairness (2024). *PMC*.
+
+21. Characterizing AI Content Detection in Oncology Abstracts 2021-2023 (2024). *PMC*.
+
+22. Distinguishing academic science writing with >99% accuracy (2023). *PMC*.
+
+23. Originality.AI -- AI Detection Studies Meta-Analysis.
+
+24. GPTZero vs Copyleaks vs Originality comparison.
+
+25. AI vs AI: Turnitin, ZeroGPT, GPTZero, Writer AI (2024). *ResearchGate*.
+
+26. Generative AI models and detection: tokenization and dataset size (2024). *Frontiers in AI*.
+
+27. Aggregated AI detector outcomes in STEM writing (2024). *American Physiological Society*.
+
+28. IACIS (2025). Critical look at reliability of AI detection tools.
+
+29. Stanford HAI -- AI-Detectors Biased Against Non-Native English Writers.
+
+30. AI-generated text detection: comprehensive review (2025). *ScienceDirect*.
+
+31. Differentiating Human-Written and AI-Generated Texts: Linguistic Features (2024). *MDPI*.
+
+32. How AI Tools Affect Discourse Markers When Paraphrased (2024). *ResearchGate*.
+
+33. A Comparative Analysis of AI-Generated and Human-Written Text (2024). *SSRN*.
+
+34. Popkov, A. et al. (2024). Median 27.2% false positive rate across free AI detectors.
+
+35. Netus AI -- How stylometric patterns survive paraphrasing.
+
+36. Deep Dive Into AI Text Fingerprints. *Hastewire*.
+
+### New References (37-72)
+
+37. Bao, G. et al. (2024). Fast-DetectGPT: Efficient zero-shot detection of machine-generated text via conditional probability curvature. *ICLR 2024*. arXiv:2305.17359.
+
+38. Hans, A. et al. (2024). Binoculars: Zero-shot detection of LLM-generated text. *ICML 2024*. arXiv:2401.12070.
+
+39. Yang, X. et al. (2024). DNA-GPT: Divergent N-Gram Analysis with LLM Probabilities for Generated Text Detection. *ICLR 2024*.
+
+40. Verma, V. et al. (2024). Ghostbuster: Detecting text ghostwritten by large language models. *NAACL 2024*. arXiv:2305.15047.
+
+41. Hu, X., Chen, P.-Y. et al. (2023). RADAR: Robust AI-text detection via adversarial learning. *NeurIPS 2023*. arXiv:2307.03838.
+
+42. Basani et al. (2025). MoSEs: Uncertainty-aware AI text detection using mixture of stylistics experts. *arXiv:2509.02499*.
+
+43. Basani et al. (2025). Diversity boosts AI-generated text detection. *arXiv:2509.18880*.
+
+44. Chengez et al. (2025). Adversarial paraphrasing: A universal attack for humanizing AI-generated text. *NeurIPS 2025*. arXiv:2506.07001.
+
+45. HJJ Works et al. (2025). TempParaphraser: "Heating up" text to evade AI-text detection. *EMNLP 2025*. ACL Anthology 2025.emnlp-main.1607.
+
+46. Meng et al. (2025). GradEscape: A gradient-based evader against AI-generated text detectors. *USENIX Security 2025*. arXiv:2506.08188.
+
+47. Modeling the Attack: Detecting AI-generated text by quantifying adversarial perturbations (2025). *arXiv:2510.02319*.
+
+48. Kim et al. (2024). Threads of subtlety: Detecting machine-generated texts through discourse motifs. *ACL 2024*. arXiv:2402.10586.
+
+49. Discourse features enhance detection of document-level machine-generated content (2024). *arXiv:2412.12679*.
+
+50. Sci-SpanDet: Span-level detection of AI-generated scientific text via contrastive learning and structural calibration (2025). *Knowledge-Based Systems*. arXiv:2510.00890.
+
+51. Distinguishing AI-generated text through psycholinguistic analysis (2025). *arXiv:2505.01800*.
+
+52. AI-generated text detection: A multifaceted approach to binary and multiclass classification (2025). *arXiv:2505.11550*.
+
+53. FAID: Fine-grained AI-generated text detection using multi-task auxiliary and multi-level contrastive learning (2025). *arXiv:2505.14271*.
+
+54. Su, Wang et al. (2025). HACo-Det: Fine-grained machine-generated text detection under human-AI coauthoring. *arXiv:2506.02959*.
+
+55. Fine-grained detection of AI-generated text using sentence-level segmentation (2025). *arXiv:2509.17830*.
+
+56. Dugan, L. et al. (2024). RAID: A shared benchmark for robust evaluation of machine-generated text detectors. *ACL 2024*. arXiv:2405.07940.
+
+57. Wang, Mansurov et al. (2024). M4 / M4GT-Bench: Multi-generator, multi-domain, multi-lingual. *EACL 2024*.
+
+58. HC3 Plus (updated October 2024). *arXiv:2309.02731*.
+
+59. Cheng, Y. et al. (2025). SIRA: Self-information rewrite attack against text watermarks. *ICML 2025*. arXiv:2505.05190.
+
+60. SynthID Detector portal (May 2025). Google Blog.
+
+61. European Commission (2025). First draft code of practice on transparency of AI-generated content. December 17, 2025.
+
+62. Accuracy-bias trade-offs in AI detection and scholarly publication fairness (2025). *PeerJ Computer Science*. DOI:10.7717/peerj-cs.2953.
+
+63. A survey on LLM-generated text detection: Necessity, methods, and future directions (2025). *Computational Linguistics*. ACL 2025.cl-1.8.
+
+64. Yang, Z. et al. (2025). The imitation game revisited: A comprehensive survey on AI-generated text detection. *Expert Systems with Applications*, 272, 126694.
+
+65. A practical examination of AI-generated text detectors for large language models (2025). *NAACL 2025 Findings*.
+
+66. Classifying human vs. AI text with ML and explainable transformers (2025). *Nature Scientific Reports*. DOI:10.1038/s41598-025-27377-z.
+
+67. Psycholinguistic NLP framework for forensic text analysis (2025). *Frontiers in Artificial Intelligence*. DOI:10.3389/frai.2025.1669542.
+
+68. NEULIF: A lightweight approach to detection of AI-generated texts (2025). *arXiv:2511.21744*.
+
+69. StyloMetrix + LightGBM: Stylometry recognizes human and LLM-generated texts in short samples (2025). *arXiv:2507.00838*.
+
+70. Stanford Academic Integrity Working Group (October 2025). Generative AI exam policies.
+
+71. Can AI writing be salvaged? Mitigating idiosyncrasies (2024). *arXiv:2409.14509*.
+
+72. Stylometric analysis of AI-generated texts: ChatGPT and DeepSeek (2025). *Tandfonline*. DOI:10.1080/23311983.2025.2553162.
 
 1. Liang, W., Yuksekgonul, M., Mao, Y., Wu, E., & Zou, J. (2023). GPT detectors are biased against non-native English writers. *arXiv:2304.02819*.
 
@@ -495,4 +960,4 @@ Watermarking provides mathematically guaranteed detection, but cooperation from 
 
 ---
 
-> This literature review was written based on key research published between 2024-2026 and requires continuous updates given the rapid advancement of AI text detection technologies.
+> **Version 2.0** — Updated 2026-02-23 with 36 new references covering 2024-2026 advances in detection methods, adversarial evasion, discourse-level analysis, stylometric frameworks, benchmark datasets, watermarking, and regulatory developments. Original sections 1-8 written 2026-02-22; sections 9-17 added 2026-02-23.

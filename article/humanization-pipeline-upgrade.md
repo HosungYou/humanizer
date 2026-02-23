@@ -1,9 +1,10 @@
-# Diverga Humanization Pipeline Upgrade: AI Detection Evasion Strategy Through Structural Transformation
+# Diverga Humanization Pipeline Upgrade: AI Detection Evasion Strategy Through Structural and Discourse Transformation
 
-> **Version**: 1.0
-> **Date**: 2026-02-22
-> **Target System**: Diverga Plugin v8.0.1 (G5/G6/F5 Pipeline)
+> **Version**: 2.0
+> **Date**: 2026-02-23 (updated from v1.0 2026-02-22)
+> **Target System**: Diverga Plugin v9.2.1 (G5/G6/F5 Pipeline)
 > **Related Repository**: [HosungYou/humanizer](https://github.com/HosungYou/humanizer)
+> **v2.0 Changes**: Updated detection landscape (Sections 3, 4), evolved from Three-Pillar to Four-Pillar proposal, added discourse transformation pillar, companion literature review expanded to 72 references
 
 ---
 
@@ -12,7 +13,7 @@
 1. [Background and Problem Recognition](#1-background-and-problem-recognition)
 2. [Current Architecture Analysis (G5→G6→F5)](#2-current-architecture-analysis-g5g6f5)
 3. [AI Text Detection Research Literature Review (2024-2026)](#3-ai-text-detection-research-literature-review-2024-2026)
-4. [Three-Pillar Upgrade Proposal](#4-three-pillar-upgrade-proposal)
+4. [Four-Pillar Upgrade Proposal](#4-four-pillar-upgrade-proposal)
 5. [Objective Metrics and Benchmarks](#5-objective-metrics-and-benchmarks)
 6. [References](#6-references)
 
@@ -664,37 +665,44 @@ require_if_above: 70%    # Require review if > 70%
 
 ## 3. AI Text Detection Research Literature Review (2024-2026)
 
-> A detailed literature review is available in a separate document [research-literature-review.md](./research-literature-review.md). This section summarizes the key conclusions directly incorporated into the upgrade design.
+> A detailed literature review is available in a separate document [research-literature-review.md](./research-literature-review.md) (v2.0, 72 references). This section summarizes the key conclusions directly incorporated into the upgrade design.
 
-### 3.1 Overview of Detection Approaches
+### 3.1 Overview of Detection Approaches (Updated 2025)
 
-Current AI text detection is broadly classified into three approaches:
+AI text detection has expanded from three to **five** major approaches:
 
 | Approach | Principle | Representative Tools | Key Limitations |
 |----------|-----------|---------------------|-----------------|
-| **Perplexity-based** | Measures how much a language model is "surprised" by each token | GPTZero, DetectGPT | Model-dependent — text predictable for one model may not be for another |
-| **Classifier-based** | Fine-tuned transformers trained on AI/human pairs | Originality.ai, Turnitin, Copyleaks, ZeroGPT | Training data bias, vulnerable to paraphrasing |
-| **Watermarking-based** | Embeds statistical signals in token selection during generation | SynthID-Text (Google DeepMind) | Requires cooperation from the generating model, cannot detect retroactively |
+| **Perplexity-based** | Token-level predictability scoring | GPTZero, DetectGPT | Model-dependent |
+| **Conditional probability curvature** | Shape of conditional probability distribution | Fast-DetectGPT (ICLR 2024) | Requires reference model |
+| **Contrastive dual-model** | Cross-model probability ratio | Binoculars (ICML 2024) | Requires two models; strongest zero-shot detector |
+| **Classifier-based** | Fine-tuned transformers on AI/human pairs | Originality.ai 3.0, Turnitin Oct 2025, Copyleaks v3 | Training bias, domain shift |
+| **Discourse-structural** | RST motifs, PDTB coherence, section-conditional profiling | Sci-SpanDet (2025), DTransformer (2024) | Most evasion-resistant; emerging |
+| **Watermarking-based** | Statistical bias in token selection | SynthID-Text (Google DeepMind) | Requires generating model cooperation; SIRA attack achieves ~100% removal |
 
-### 3.2 Comparison of Major Commercial Detectors
+Additional notable methods: DNA-GPT (n-gram divergence, ICLR 2024), Ghostbuster (multi-model probability profiles, NAACL 2024), RADAR (adversarially-trained detector, NeurIPS 2023), MoSEs (mixture of stylistic experts, 2025), DivEye (surprisal-based diversity, NeurIPS 2025).
 
-| Tool | Claimed Accuracy | Independent Verification Results | False Positive Rate | Notes |
-|------|------------------|----------------------------------|---------------------|-------|
-| GPTZero | 99.3% | High on unmodified text; fails on translated content | 0.24% (claimed) | Misclassified all translated AI text as human |
-| Originality.ai | 98-100% | Top performance across multiple benchmarks | Low | Optimal for long-form academic text |
-| Turnitin AI | 92-100% | Misses ~15% of AI text | ~1% (claimed) | Multiple universities deactivating |
-| Copyleaks | 90.7% | Best multilingual detection; ~1/20 false positives | ~5% | Strength in non-English AI text |
-| ZeroGPT | Variable | Generally low accuracy | High | Free tier; low reliability |
+### 3.2 Comparison of Major Commercial Detectors (Updated September 2025)
 
-### 3.3 Evidence-Based Key Conclusions (7)
+| Tool | Version | Claimed Accuracy | Independent Results | False Positive Rate | Notes |
+|------|---------|------------------|---------------------|---------------------|-------|
+| GPTZero | 3.7b/3.8b (Aug 2025) | 96.8-99.1% | Strong on unmodified; degrades on paraphrased | 0.24% (claimed) | Now detects GPT-4.1, o3, Claude Sonnet 4 |
+| Originality.ai | Turbo 3.0.2 (Sep 2025) | 99%+; **97% on humanized** | Top benchmark performer | Low | Academic 0.0.5 model; 30 languages |
+| Turnitin AI | Oct 2025 update | ~85% (intentional) | Misses ~15% by design | 2-5% (independent) | FPR reduced ~40% vs prior; ESL bias persists |
+| Copyleaks | v3 (May 2025) | 99.1% | ~66% in real-world (Scribbr) | 0.2% (claimed) | AI Source Match feature added |
+| ZeroGPT | Variable | Variable | Generally low accuracy | High | Free tier; low reliability |
 
-Literature evidence directly incorporated into the upgrade design:
+**Critical 2025 finding**: Originality.ai now claims **97% accuracy on humanized content** — direct evidence that vocabulary-level humanization alone is no longer sufficient. Structural and discourse-level transformation is required.
+
+### 3.3 Evidence-Based Key Conclusions (13)
+
+Literature evidence directly incorporated into the upgrade design (original 7 + 6 new from 2025):
 
 **1. No detector can be solely trusted for high-stakes decisions.**
-Independent studies consistently report false positive rates of 10-27%, starkly contrasting vendor claims of 0.24-1%. At least 12 elite universities including Yale, Vanderbilt, Johns Hopkins, and Northwestern have deactivated AI detection.
+Independent studies consistently report false positive rates of 10-27%, starkly contrasting vendor claims of 0.24-1%. At least 12 elite universities including Yale, Vanderbilt, Johns Hopkins, and Northwestern have deactivated AI detection. Stanford (Oct 2025) concluded detection tools are "unsuitable for high-stakes situations."
 
 **2. Paraphrasing is the most effective evasion method.**
-DIPPER (Krishna et al., 2023) reduced DetectGPT detection from 70.3% to 4.6%. A 2025 adversarial paraphrasing study achieved an average 87.88% TPR reduction across 8 detectors.
+DIPPER (Krishna et al., 2023) reduced DetectGPT detection from 70.3% to 4.6%. The NeurIPS 2025 adversarial paraphrasing study achieved an average **87.88% TPR reduction** across 8 detectors using detector-guided feedback.
 
 **3. Burstiness and perplexity are the key quantitative signals.**
 Burstiness (CV or Fano Factor) and per-sentence perplexity variance are the most practically measurable features. MTLD is the recommended metric for lexical diversity measurement.
@@ -703,27 +711,48 @@ Burstiness (CV or Fano Factor) and per-sentence perplexity variance are the most
 A 2024 PubMed data analysis identified **454 AI-excess words**, with a sharp inflection point appearing in 2023-2024.
 
 **5. Non-native speakers are systematically disadvantaged.**
-Liang et al. (2023) found that **over 61%** of TOEFL essays were misclassified as AI by at least one detector. The most accurate detectors also show the strongest bias against non-native speakers.
+Confirmed again in 2025 (PeerJ Computer Science, June 2025). False positive rates exceed 61%. UC Berkeley D-Lab frames this as creating "bad students" out of non-native speakers.
 
 **6. Structural fingerprints persist even after humanization.**
 Discourse structure, paragraph architecture, and enumeration patterns survive paraphrasing more robustly than vocabulary. This is the cause of the 60% ceiling after Round 2.
 
-**7. Watermarking is the only technically robust solution.**
-However, it requires cooperation from LLM providers and cannot retroactively detect text generated without watermarking.
+**7. Watermarking is technically robust but practically broken.**
+SIRA (ICML 2025) achieves ~100% watermark removal at $0.88/million tokens. OpenAI has shelved text watermarking. The EU AI Act Article 50 (August 2026) will mandate multi-layer watermarking.
+
+**8. Discourse-level patterns are the most evasion-resistant detection signal.** *(New 2025)*
+RST discourse motifs (ACL 2024) and PDTB coherence relations (DTransformer, 2024) survive paraphrasing far better than any other feature. Human texts show significantly more structural variability in discourse motifs than AI text. **This is the single largest gap in all current humanization approaches.**
+
+**9. No single detector is robust against coordinated adversarial attack.** *(New 2025)*
+Even RADAR (adversarially trained) fell 64.49% to the NeurIPS 2025 attack. Multi-signal ensembles (stylometric + semantic + classifier) offer the strongest defense but remain vulnerable.
+
+**10. Feature-based detection no longer requires the generating model.** *(New 2025)*
+DivEye, NEULIF, and StyloMetrix classifiers achieve 94-97% accuracy using only text-surface features. Humanization must transform the distributional signature, not merely reduce perplexity.
+
+**11. Section-conditional detection is now operational for academic text.** *(New 2025)*
+Sci-SpanDet (2025) applies IMRaD-section-specific profiles. Humanization must be section-aware.
+
+**12. Evasion processes themselves create detectable traces.** *(New 2025)*
+Systematic edits leave perturbation patterns distinguishable from natural human revision. Humanization must mimic natural editing patterns.
+
+**13. The regulatory landscape is diverging.** *(New 2025)*
+EU: mandatory watermarking by August 2026. US: enabling AI development. Universities: moving away from detection. Legal uncertainty for humanization tools.
 
 ---
 
-## 4. Three-Pillar Upgrade Proposal
+## 4. Four-Pillar Upgrade Proposal
 
 ### Overview
 
-Synthesizing the 3-Round experience and literature review findings, simultaneous upgrades across three pillars are needed to overcome the limitations of the current pipeline:
+Synthesizing the 3-Round experience, original literature review, and the **2025-2026 detection landscape update** (13 conclusions), upgrades across four pillars are needed:
 
-| Pillar | Target Agent | Key Change | Problem Addressed |
-|--------|-------------|------------|-------------------|
-| **Pillar 1**: Detection Enhancement | G5 v2.0 | Add quantitative stylometric metrics, new pattern categories S7-S10 | Failure to detect structural patterns |
-| **Pillar 2**: Structural Transformation | G6 v2.0 | Add Layer 3 structural transformation, burstiness enhancement | Operates only at word/phrase level |
-| **Pillar 3**: Iterative Pipeline | Pipeline v2.0 | Multi-pass architecture, feedback loops | 60% ceiling of single-pass approach |
+| Pillar | Target | Key Change | Problem Addressed | Status |
+|--------|--------|------------|-------------------|--------|
+| **Pillar 1**: Detection Enhancement | G5 v2.0 | Quantitative stylometric metrics, S7-S10 patterns | Failure to detect structural patterns | **Implemented (v9.1.0)** |
+| **Pillar 2**: Structural Transformation | G6 v2.0 | Layer 3 structural transformation, burstiness enhancement | Operates only at word/phrase level | **Implemented (v9.1.0)** |
+| **Pillar 3**: Iterative Pipeline | Pipeline v2.0 | Multi-pass architecture, feedback loops | 60% ceiling of single-pass approach | **Implemented (v9.1.0)** |
+| **Pillar 4**: Discourse Transformation | G6 v3.0 + Humanizer MCP v3.0 | Layer 4 discourse transformation, extended metrics, detector-guided feedback | Discourse motif uniformity (ACL 2024), section-conditional detection (2025), perturbation traces (2025) | **Proposed (v3.0)** |
+
+> **Pillar 4** is the response to the 2025 detection landscape. See [pipeline-improvement-plan.md](./pipeline-improvement-plan.md) for the full v3.0 roadmap.
 
 ---
 
@@ -1489,5 +1518,5 @@ When the automated 2-pass fails to meet the target:
 
 ---
 
-> **End of Document** | Related documents: [research-literature-review.md](./research-literature-review.md), [round3-strategy.md](./round3-strategy.md)
-> **Implementation Roadmap**: [../roadmap/TODO.md](../roadmap/TODO.md)
+> **End of Document** | Related documents: [research-literature-review.md](./research-literature-review.md), [round3-strategy.md](./round3-strategy.md), [pipeline-improvement-plan.md](./pipeline-improvement-plan.md)
+> **Implementation Roadmap**: Pillar 4 (v3.0) roadmap in [pipeline-improvement-plan.md](./pipeline-improvement-plan.md)
