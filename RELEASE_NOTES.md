@@ -1,3 +1,185 @@
+# Release Notes — Humanizer MCP Server v2.1.0
+
+**Date**: 2026-02-23
+**Title**: MCP Server — Precise Stylometric Computation for Humanization Pipeline
+
+---
+
+## Highlights
+
+- **Python MCP server** with 4 tools replacing LLM estimation with exact computation
+- **Burstiness CV, MTLD, Fano Factor** calculated algorithmically — no more approximation
+- **Feedback loop**: `humanizer_verify` returns `needs_another_pass` with specific recommendations
+- **Discipline calibration**: psychology, management, education profiles with field-specific thresholds
+- **Regression detection**: flags when humanization accidentally decreases burstiness or opener diversity
+- **Hedge density tracking**: counts hedging language per sentence for manual review
+- **120 tests passing** (84 existing pipeline + 36 new MCP server tests)
+
+---
+
+## What's New
+
+### MCP Server (4 Tools)
+
+The humanizer MCP server provides precise quantitative metrics via `stdio` transport, replacing LLM estimation in the G5/G6/F5 pipeline. LLMs are poor at counting words per sentence, computing standard deviations, and iterating MTLD algorithms — this server handles those computations exactly.
+
+| Tool | Purpose | Pipeline Stage |
+|------|---------|---------------|
+| `humanizer_metrics` | Full stylometric analysis | G5 Analysis (Stage 2) |
+| `humanizer_verify` | Before/after comparison with regression detection | After each G6 pass |
+| `humanizer_diff` | Per-metric delta report with improvement percentages | Checkpoint reports |
+| `humanizer_status` | Readiness assessment with discipline calibration | Pipeline start |
+
+### `humanizer_metrics`
+
+Computes all quantitative metrics for input text:
+
+| Metric | Algorithm | Human Baseline | AI Typical |
+|--------|-----------|---------------|------------|
+| Burstiness CV | SD / Mean of sentence word counts | > 0.45 | < 0.30 |
+| MTLD | Forward + backward pass, TTR threshold 0.72 | > 80 | < 60 |
+| Fano Factor | Variance / Mean of sentence lengths | > 1 (super-Poissonian) | < 1 |
+| Sentence Length Range | max - min word count | > 25 | < 15 |
+| Paragraph Opener Diversity | unique first-3-words / total paragraphs | > 0.70 | < 0.50 |
+| Hedge Density | hedge words / sentence count | varies | high |
+| Composite Score | Weighted formula (pattern 60% + burstiness 20% + vocab 10% + structural 10%) | < 30% | > 60% |
+
+Parameters: `text`, `pattern_score`, `structural_penalty`, `non_native`, `discipline`
+
+### `humanizer_verify`
+
+Compares metrics before and after humanization. Returns:
+- Per-metric comparison (before/after values)
+- `regressions` array with severity ratings (high/moderate/low)
+- `needs_another_pass: bool` — true if composite > 30% or any metric regressed
+- `recommendations` array with specific guidance for the next pass
+
+Resolves **Gap 1** (feedback loop) and **Gap 6** (pattern recovery detection) from v2.0.
+
+### `humanizer_diff`
+
+Generates a per-metric delta report:
+- Delta values and improvement percentages for all 9 metrics
+- Sentence length distribution comparison (before/after word count arrays)
+
+Resolves **Gap 5** (diff visualization) from v2.0.
+
+### `humanizer_status`
+
+Pipeline readiness assessment:
+- Per-metric pass/fail against discipline-specific thresholds
+- Distance-to-target for each metric
+- Overall `readiness: "ready" | "needs_work"`
+
+Resolves **Gap 3** (discipline calibration) from v2.0.
+
+### Discipline Calibration Profiles
+
+| Discipline | Burstiness Threshold | MTLD Threshold |
+|------------|---------------------|----------------|
+| Default | 0.45 | 80 |
+| Psychology | 0.40 | 75 |
+| Management | 0.42 | 78 |
+| Education | 0.43 | 76 |
+
+Pass `discipline="psychology"` to any tool for field-specific thresholds.
+
+### Sentence Tokenization
+
+Pure Python tokenizer with protection for:
+- Abbreviations: et al., Fig., Dr., Prof., etc.
+- Decimal numbers: 0.45, p = .001
+- Parenthetical citations: (Author, 2024).
+- Minimum 3-word sentence filter to avoid fragments
+
+### Non-Native Speaker Calibration
+
+When `non_native=True`, burstiness threshold lowers from 0.45 to 0.35 (based on Liang et al., 2023).
+
+---
+
+## Gaps Resolved from v2.0
+
+| Gap | v2.0 Status | v2.1 Resolution |
+|-----|-------------|-----------------|
+| Gap 1: Feedback loop | No automatic retry | `humanizer_verify` returns `needs_another_pass` with recommendations |
+| Gap 3: Discipline calibration | Generic thresholds | `humanizer_status` with discipline-specific profiles |
+| Gap 5: Diff visualization | No side-by-side | `humanizer_diff` with per-metric deltas |
+| Gap 6: Pattern recovery | Flag only | `humanizer_verify` detects opener diversity regression |
+| Gap 7: Hedge calibration | No measurement | `humanizer_metrics` returns `hedge_density` |
+
+---
+
+## Files
+
+**6 new files (~500 LOC production, ~320 LOC tests)**
+
+| File | Description |
+|------|-------------|
+| `pyproject.toml` | Package config with hatchling backend, pytest config |
+| `src/humanizer_mcp/__init__.py` | Package init, version 2.1.0 |
+| `src/humanizer_mcp/metrics.py` | Core algorithms (~280 LOC) |
+| `src/humanizer_mcp/server.py` | FastMCP server with 4 tools (~150 LOC) |
+| `tests/test_metrics.py` | 28 unit tests across 9 test classes |
+| `tests/test_server.py` | 8 integration tests for all 4 tools |
+
+---
+
+## Agent Integration
+
+The following Diverga agents are updated to call MCP tools when available:
+
+| Agent | Tool Used | Fallback |
+|-------|-----------|----------|
+| G5 (Academic Style Auditor) | `humanizer_metrics`, `humanizer_status` | LLM estimation |
+| G6 (Academic Style Humanizer) | `humanizer_verify`, `humanizer_diff` | LLM estimation |
+| F5 (Humanization Verifier) | `humanizer_verify` | LLM estimation |
+
+---
+
+## Installation
+
+```bash
+cd /Users/hosung/humanizer
+pip install -e .
+```
+
+MCP server registration in `~/.claude/settings.json`:
+```json
+"humanizer": {
+  "command": "/Users/hosung/humanizer/.venv/bin/python",
+  "args": ["-m", "humanizer_mcp.server"],
+  "cwd": "/Users/hosung/humanizer"
+}
+```
+
+---
+
+## Test Results
+
+```
+120 passed in 0.29s
+  - 84 existing pipeline tests (test_pipeline_v2.py)
+  - 28 metrics unit tests (test_metrics.py)
+  - 8 server integration tests (test_server.py)
+```
+
+---
+
+## Breaking Changes
+
+None. v2.1 is additive — the MCP server is a new component that agents use when available, with graceful LLM estimation fallback.
+
+---
+
+*Humanizer v2.1.0 — Released 2026-02-23*
+*Diverga v9.2.0 — MCP Tool Integration*
+*Repository: https://github.com/HosungYou/humanizer*
+*Diverga plugin: https://github.com/HosungYou/Diverga*
+
+---
+---
+
 # Release Notes — Diverga Humanization Pipeline v2.0.0
 
 **Date**: 2026-02-22

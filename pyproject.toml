@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "humanizer-mcp"
+version = "2.1.0"
+description = "MCP server for precise stylometric metrics in academic text humanization"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+]
+
+[project.scripts]
+humanizer-mcp = "humanizer_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/humanizer_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
