@@ -1,17 +1,30 @@
 """FastMCP server exposing stylometric humanization tools."""
 
+import json
+
 from mcp.server.fastmcp import FastMCP
 
 from humanizer_mcp.metrics import (
     DISCIPLINE_PROFILES,
+    _compute_discourse_penalty,
+    _compute_psycholinguistic_penalty,
+    compute_abstract_noun_ratio,
     compute_all_metrics,
     compute_burstiness,
     compute_composite_score,
+    compute_connective_diversity,
+    compute_contraction_density,
     compute_fano_factor,
+    compute_hapax_rate,
     compute_hedge_density,
     compute_mtld,
+    compute_paragraph_length_variance,
     compute_paragraph_opener_diversity,
+    compute_pronoun_density,
+    compute_question_ratio,
     compute_sentence_length_range,
+    compute_surprisal_autocorrelation,
+    compute_surprisal_proxy,
     get_discipline_profile,
 )
 
@@ -33,7 +46,8 @@ def humanizer_metrics(
     """Compute all quantitative stylometric metrics for input text.
 
     Returns burstiness CV, MTLD, Fano Factor, sentence length range,
-    paragraph opener diversity, hedge density, and composite AI probability score.
+    paragraph opener diversity, hedge density, discourse and psycholinguistic
+    penalties, and composite AI probability score (v3 formula).
     """
     profile = get_discipline_profile(discipline)
     result = compute_all_metrics(
@@ -59,13 +73,15 @@ def humanizer_metrics(
             0.0 if mtld_val >= m_thresh else (m_thresh - mtld_val) / m_thresh * 100, 2
         )
 
-        # Recompute composite with updated penalties
+        # Recompute composite with updated penalties (v3 includes discourse + psycholinguistic)
         result["composite"] = compute_composite_score(
             pattern_score,
             {
                 "burstiness_penalty": bust["penalty"],
                 "vocab_diversity_penalty": mtld_data["penalty"],
                 "structural_penalty": structural_penalty,
+                "discourse_penalty": result["discourse_penalty"],
+                "psycholinguistic_penalty": result["psycholinguistic_penalty"],
             },
         )
 
@@ -129,6 +145,52 @@ def humanizer_verify(
             "before": before["paragraph_opener_diversity"]["diversity"],
             "after": after["paragraph_opener_diversity"]["diversity"],
             "severity": "high" if diff > 0.20 else "moderate" if diff > 0.10 else "low",
+        })
+
+    # Check discourse penalty (lower is better)
+    if after["discourse_penalty"] > before["discourse_penalty"]:
+        diff = after["discourse_penalty"] - before["discourse_penalty"]
+        regressions.append({
+            "metric": "discourse_penalty",
+            "before": before["discourse_penalty"],
+            "after": after["discourse_penalty"],
+            "severity": "high" if diff > 15 else "moderate" if diff > 5 else "low",
+        })
+
+    # Check psycholinguistic penalty (lower is better)
+    if after["psycholinguistic_penalty"] > before["psycholinguistic_penalty"]:
+        diff = after["psycholinguistic_penalty"] - before["psycholinguistic_penalty"]
+        regressions.append({
+            "metric": "psycholinguistic_penalty",
+            "before": before["psycholinguistic_penalty"],
+            "after": after["psycholinguistic_penalty"],
+            "severity": "high" if diff > 15 else "moderate" if diff > 5 else "low",
+        })
+
+    # Check connective diversity (higher is better)
+    if (
+        after["connective_diversity"]["diversity"]
+        < before["connective_diversity"]["diversity"]
+    ):
+        diff = (
+            before["connective_diversity"]["diversity"]
+            - after["connective_diversity"]["diversity"]
+        )
+        regressions.append({
+            "metric": "connective_diversity",
+            "before": before["connective_diversity"]["diversity"],
+            "after": after["connective_diversity"]["diversity"],
+            "severity": "high" if diff > 0.20 else "moderate" if diff > 0.10 else "low",
+        })
+
+    # Check hapax rate (higher is better)
+    if after["hapax_rate"]["rate"] < before["hapax_rate"]["rate"]:
+        diff = before["hapax_rate"]["rate"] - after["hapax_rate"]["rate"]
+        regressions.append({
+            "metric": "hapax_rate",
+            "before": before["hapax_rate"]["rate"],
+            "after": after["hapax_rate"]["rate"],
+            "severity": "high" if diff > 0.10 else "moderate" if diff > 0.05 else "low",
         })
 
     composite_after = after["composite"]["composite_score"]
@@ -229,6 +291,40 @@ def humanizer_diff(
             "after": after["hedge_density"]["density"],
             **_delta(after["hedge_density"]["density"], before["hedge_density"]["density"]),
         },
+        "discourse_penalty": {
+            "before": before["discourse_penalty"],
+            "after": after["discourse_penalty"],
+            **_delta(after["discourse_penalty"], before["discourse_penalty"]),
+        },
+        "psycholinguistic_penalty": {
+            "before": before["psycholinguistic_penalty"],
+            "after": after["psycholinguistic_penalty"],
+            **_delta(
+                after["psycholinguistic_penalty"],
+                before["psycholinguistic_penalty"],
+            ),
+        },
+        "connective_diversity": {
+            "before": before["connective_diversity"]["diversity"],
+            "after": after["connective_diversity"]["diversity"],
+            **_delta(
+                after["connective_diversity"]["diversity"],
+                before["connective_diversity"]["diversity"],
+            ),
+        },
+        "hapax_rate": {
+            "before": before["hapax_rate"]["rate"],
+            "after": after["hapax_rate"]["rate"],
+            **_delta(after["hapax_rate"]["rate"], before["hapax_rate"]["rate"]),
+        },
+        "question_ratio": {
+            "before": before["question_ratio"]["ratio"],
+            "after": after["question_ratio"]["ratio"],
+            **_delta(
+                after["question_ratio"]["ratio"],
+                before["question_ratio"]["ratio"],
+            ),
+        },
         "composite_score": {
             "before": before["composite"]["composite_score"],
             "after": after["composite"]["composite_score"],
@@ -273,6 +369,11 @@ def humanizer_status(
     slr = result["sentence_length_range"]["range"]
     opener_div = result["paragraph_opener_diversity"]["diversity"]
     composite = result["composite"]["composite_score"]
+    conn_div = result["connective_diversity"]["diversity"]
+    hapax = result["hapax_rate"]["rate"]
+    question = result["question_ratio"]["ratio"]
+    disc_pen = result["discourse_penalty"]
+    psych_pen = result["psycholinguistic_penalty"]
 
     status_details = {
         "burstiness_cv": {
@@ -299,6 +400,36 @@ def humanizer_status(
             "distance": round(0.70 - opener_div, 4) if opener_div < 0.70 else 0.0,
             "passed": opener_div >= 0.70,
         },
+        "connective_diversity": {
+            "current": conn_div,
+            "target": 0.70,
+            "distance": round(0.70 - conn_div, 4) if conn_div < 0.70 else 0.0,
+            "passed": conn_div >= 0.70,
+        },
+        "hapax_rate": {
+            "current": hapax,
+            "target": 0.45,
+            "distance": round(0.45 - hapax, 4) if hapax < 0.45 else 0.0,
+            "passed": hapax >= 0.45,
+        },
+        "question_ratio": {
+            "current": question,
+            "target": 0.02,
+            "distance": round(0.02 - question, 4) if question < 0.02 else 0.0,
+            "passed": question >= 0.02,
+        },
+        "discourse_penalty": {
+            "current": disc_pen,
+            "target": 20.0,
+            "distance": round(disc_pen - 20.0, 2) if disc_pen > 20.0 else 0.0,
+            "passed": disc_pen <= 20.0,
+        },
+        "psycholinguistic_penalty": {
+            "current": psych_pen,
+            "target": 20.0,
+            "distance": round(psych_pen - 20.0, 2) if psych_pen > 20.0 else 0.0,
+            "passed": psych_pen <= 20.0,
+        },
         "composite_score": {
             "current": composite,
             "target": target,
@@ -317,6 +448,101 @@ def humanizer_status(
         "metrics": status_details,
         "full_metrics": result,
     }
+
+
+# ---------------------------------------------------------------------------
+# Tool 5: discourse-level analysis
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def humanizer_discourse(text: str, discipline: str = "default") -> str:
+    """Compute discourse-level metrics for AI detection assessment.
+
+    Analyzes text for discourse patterns that are difficult for AI text
+    to replicate, including connective diversity, question usage,
+    pronoun density, and psycholinguistic markers.
+
+    Args:
+        text: The text to analyze
+        discipline: Academic discipline for calibration
+                   (default, psychology, management, education, stem, humanities, social_sciences)
+
+    Returns:
+        JSON with discourse metrics, penalties, and discipline-calibrated targets
+    """
+    profile = get_discipline_profile(discipline)
+
+    # Compute all 9 new metrics
+    hapax = compute_hapax_rate(text)
+    contraction = compute_contraction_density(text)
+    para_var = compute_paragraph_length_variance(text)
+    surprisal = compute_surprisal_proxy(text)
+    surprisal_ac = compute_surprisal_autocorrelation(text)
+    connective_div = compute_connective_diversity(text)
+    pronoun = compute_pronoun_density(text)
+    question = compute_question_ratio(text)
+    abstract_noun = compute_abstract_noun_ratio(text)
+
+    # Compute derived penalties
+    discourse_penalty = _compute_discourse_penalty(
+        connective_div, question, pronoun,
+    )
+    psycholinguistic_penalty = _compute_psycholinguistic_penalty(
+        hapax, contraction, abstract_noun, surprisal,
+    )
+
+    # Discipline-calibrated targets
+    targets = {
+        "contraction_target": profile.get("contraction_target", 0.10),
+        "pronoun_target": profile.get("pronoun_target", 0.05),
+        "hapax_target": profile.get("hapax_target", 0.45),
+        "connective_diversity_target": 0.70,
+        "question_ratio_target": 0.02,
+        "abstract_noun_ceiling": 0.30,
+        "surprisal_variance_target": 15.0,
+    }
+
+    # Flag metrics in AI-typical range
+    flags: list[str] = []
+    if connective_div["diversity"] < 0.50:
+        flags.append("connective_diversity: AI-typical (<0.50)")
+    if hapax["rate"] < 0.35:
+        flags.append("hapax_rate: AI-typical (<0.35)")
+    if question["ratio"] < 0.01:
+        flags.append("question_ratio: AI-typical (<0.01)")
+    if pronoun["density"] < 0.02:
+        flags.append("pronoun_density: AI-typical (<0.02)")
+    if contraction["density"] < 0.05:
+        flags.append("contraction_density: AI-typical (<0.05)")
+    if abstract_noun["ratio"] > 0.45:
+        flags.append("abstract_noun_ratio: AI-typical (>0.45)")
+    if surprisal.get("variance", 0) < 8.0:
+        flags.append("surprisal_variance: AI-typical (<8.0)")
+    if para_var["cv"] < 0.25:
+        flags.append("paragraph_length_variance: AI-typical (<0.25)")
+    if abs(surprisal_ac.get("autocorrelation", 0)) < 0.15:
+        flags.append("surprisal_autocorrelation: AI-typical (<0.15)")
+
+    return json.dumps({
+        "metrics": {
+            "hapax_rate": hapax,
+            "contraction_density": contraction,
+            "paragraph_length_variance": para_var,
+            "surprisal_proxy": surprisal,
+            "surprisal_autocorrelation": surprisal_ac,
+            "connective_diversity": connective_div,
+            "pronoun_density": pronoun,
+            "question_ratio": question,
+            "abstract_noun_ratio": abstract_noun,
+        },
+        "penalties": {
+            "discourse_penalty": discourse_penalty,
+            "psycholinguistic_penalty": psycholinguistic_penalty,
+        },
+        "discipline": discipline,
+        "discipline_targets": targets,
+        "flags": flags,
+    })
 
 
 # ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "humanizer-mcp"
-version = "2.1.0"
+version = "3.0.0"
 description = "MCP server for precise stylometric metrics in academic text humanization"
 readme = "README.md"
 license = "MIT"
@@ -41,6 +41,7 @@ humanizer-mcp = "humanizer_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/humanizer_mcp"]
+artifacts = ["src/humanizer_mcp/data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

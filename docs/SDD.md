@@ -66,6 +66,7 @@ This document does NOT cover the broader Diverga research assistant framework, t
 | MTLD | Measure of Textual Lexical Diversity (McCarthy & Jarvis, 2010) |
 | Pass | One complete cycle of G6 transformation followed by G5 re-scan and F5 verification |
 | S7-S10 | Structural detection patterns added in v2.0 |
+| SUBTLEX-US | Subtitle-based word frequency corpus (Brysbaert & New, 2009); used for surprisal computation |
 | TTR | Type-Token Ratio |
 | VS | Verbalized Sampling methodology |
 
@@ -428,25 +429,77 @@ Four stylometric metrics supplement pattern-based detection:
 | Paragraph Opener Diversity | unique_first_3_words / total_paragraphs | > 0.70 | < 0.50 | 8 | `max(0, (0.70 - div) / 0.70 * 100)` |
 | Fano Factor (supplementary) | Variance / Mean of sentence lengths | > 1.0 | < 1.0 | -- | Diagnostic only |
 
-#### 4.1.4 Composite Scoring Formula
+#### 4.1.4 Discourse and Psycholinguistic Metrics (v3.0)
+
+Nine additional metrics capture discourse-level and psycholinguistic properties of text that complement the four core stylometric metrics above. These are computed by the `humanizer_discourse` MCP tool and incorporated into the composite score via the `discourse_penalty` and `psycholinguistic_penalty` components.
+
+**Discourse Metrics**
+
+| Metric | Formula / Method | Human Signal | AI Signal |
+|--------|-----------------|--------------|-----------|
+| `hapax_rate` | `hapax_count / total_words` where hapax = words appearing exactly once | Higher (richer vocabulary) | Lower (repetitive vocabulary) |
+| `contraction_density` | `contraction_count / sentence_count` | Higher (natural register) | Lower (formal avoidance) |
+| `paragraph_length_variance` | `variance(paragraph_word_counts)` | Higher (structural variation) | Lower (uniform paragraph sizes) |
+| `connective_diversity` | TTR of discourse connectives (however, therefore, moreover, consequently, etc.) | Higher TTR (varied connectives) | Lower TTR (small repetitive set) |
+
+**Psycholinguistic Metrics**
+
+| Metric | Formula / Method | Human Signal | AI Signal |
+|--------|-----------------|--------------|-----------|
+| `surprisal_proxy` | Mean of `-log2(p(word))` using SUBTLEX-US frequency norms; words not in corpus capped at max surprisal | Higher (less predictable word choices) | Lower (high-frequency, predictable words) |
+| `surprisal_autocorrelation` | Lag-1 Pearson correlation of per-sentence mean surprisal values | Near zero or negative (irregular rhythm) | Positive (rhythmically uniform sentences) |
+| `pronoun_density` | `(first_person_count + second_person_count) / sentence_count` | Varies by discipline; non-zero in humanities | Near zero (impersonal AI register) |
+| `question_ratio` | `question_sentence_count / total_sentences` | Non-zero (rhetorical questions) | Near zero |
+| `abstract_noun_ratio` | `abstract_noun_count / total_nouns` using a nominalization suffix heuristic (-tion, -ness, -ity, -ism, -ance) | Lower (concrete language) | Higher (nominalization-heavy prose) |
+
+**Word Frequency Data Source (SUBTLEX-US)**
+
+Surprisal computation uses the SUBTLEX-US corpus (Brysbaert & New, 2009), a subtitle-based frequency database covering approximately 74,000 English words derived from 51 million words of American English subtitles. The corpus provides `Zipf` frequency values (log10 of frequency per million words + 3). The data file is bundled at `src/humanizer_mcp/data/subtlex_us.json` and loaded at server startup. Words absent from the corpus receive a maximum surprisal value of `log2(74001)` ≈ 16.2 bits.
+
+**Discourse Penalty Calculation**
 
 ```
-AI_Probability = (0.60 * pattern_score)
-              + (0.20 * burstiness_penalty)
+discourse_penalty = mean(
+    normalize(hapax_rate, target=0.45, direction="above"),
+    normalize(contraction_density, target=0.08, direction="above"),
+    normalize(paragraph_length_variance, target=500, direction="above"),
+    normalize(connective_diversity_ttr, target=0.60, direction="above")
+) * 100
+
+psycholinguistic_penalty = mean(
+    normalize(surprisal_proxy, target=8.0, direction="above"),
+    normalize(abs(surprisal_autocorrelation), target=0.3, direction="below"),
+    normalize(pronoun_density, target=0.05, direction="above"),
+    normalize(question_ratio, target=0.03, direction="above"),
+    normalize(abstract_noun_ratio, target=0.30, direction="below")
+) * 100
+```
+
+Where `normalize(value, target, direction="above")` returns `max(0, (target - value) / target)` for `direction="above"` (penalizes values below target) and `max(0, (value - target) / target)` for `direction="below"` (penalizes values above target).
+
+#### 4.1.5 Composite Scoring Formula (v3.0)
+
+```
+AI_Probability = (0.40 * pattern_score)
+              + (0.15 * burstiness_penalty)
               + (0.10 * vocab_diversity_penalty)
               + (0.10 * structural_penalty)
+              + (0.15 * discourse_penalty)
+              + (0.10 * psycholinguistic_penalty)
 ```
 
 | Component | Weight | Source | Range |
 |-----------|--------|--------|-------|
-| pattern_score | 60% | Phase 1 pattern detection, 28 categories, normalized 0-100 | 0-100 |
-| burstiness_penalty | 20% | `max(0, (0.45 - CV) / 0.45 * 100)` | 0-100 |
+| pattern_score | 40% | Phase 1 pattern detection, 28 categories, normalized 0-100 | 0-100 |
+| burstiness_penalty | 15% | `max(0, (0.45 - CV) / 0.45 * 100)` | 0-100 |
 | vocab_diversity_penalty | 10% | `max(0, (80 - MTLD) / 80 * 100)` | 0-100 |
 | structural_penalty | 10% | S7+S8+S9+S10 weighted scores, normalized 0-100 | 0-100 |
+| discourse_penalty | 15% | hapax rate, contraction density, paragraph length variance, connective diversity | 0-100 |
+| psycholinguistic_penalty | 10% | surprisal proxy, surprisal autocorrelation, pronoun density, question ratio, abstract noun ratio | 0-100 |
 
-**Weight rationale**: Pattern detection is the core signal (60%), validated across 28 categories. Burstiness carries the highest quantitative weight (20%) because sentence length variance is one of the most reliable discriminators between human and AI text, partially independent of vocabulary patterns. Vocabulary diversity (10%) is complementary but less discriminative in academic text. Structural penalty (10%) captures section/paragraph-level AI fingerprints missed by word-level analysis.
+**Weight rationale (v3.0)**: Pattern detection weight reduced from 60% to 40% to accommodate two new composite components. Discourse metrics (15%) capture register-level and cohesion properties invisible to word-level pattern matching. Psycholinguistic metrics (10%) capture frequency-based predictability and rhetorical diversity. Burstiness reduced from 20% to 15% — it remains a strong signal but is now one of several quantitative dimensions. Vocabulary diversity and structural penalty unchanged at 10% each.
 
-#### 4.1.5 Risk Classification
+#### 4.1.6 Risk Classification
 
 | Score Range | Risk Level | Label | Action |
 |-------------|------------|-------|--------|
@@ -456,7 +509,7 @@ AI_Probability = (0.60 * pattern_score)
 | 61-80 | High | Likely AI-Generated | Humanization recommended |
 | 81-100 | Critical | Obviously AI | Humanization required |
 
-#### 4.1.6 Context Modifiers
+#### 4.1.7 Context Modifiers
 
 **Section-based multipliers**:
 
@@ -477,7 +530,7 @@ AI_Probability = (0.60 * pattern_score)
 - Paragraph clustering: 3+ patterns in same paragraph -> +10 per additional pattern
 - Category clustering: 3 categories co-occurring -> +20; 4+ categories -> +30
 
-#### 4.1.7 Non-Native Speaker Calibration
+#### 4.1.8 Non-Native Speaker Calibration
 
 Opt-in only. Reduces false positive rates for non-native English academic writers (Liang et al. 2023: >61% misclassification rate).
 

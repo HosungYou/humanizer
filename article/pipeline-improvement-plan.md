@@ -69,7 +69,7 @@ Add a fourth transformation layer to G6:
 
 ### 2.3 Layer 4 Transformation Strategies
 
-**Strategy D1: Rhetorical Move Reordering**
+**Strategy DT1: Rhetorical Move Reordering** (DT = Discourse Transformation, to distinguish from Diverga D-category agents)
 
 AI text follows predictable rhetorical sequences in Discussion sections:
 ```
@@ -84,7 +84,7 @@ Variant C:  Limitation first → How we addressed it → What emerged → Broade
 Variant D:  Concrete scenario → Abstract principle → Evidence → Counterargument → Synthesis
 ```
 
-**Strategy D2: Digression Injection**
+**Strategy DT2: Digression Injection**
 
 Human academic writing naturally contains:
 - Parenthetical observations ("—a pattern we did not anticipate—")
@@ -94,7 +94,7 @@ Human academic writing naturally contains:
 
 G6 v3.0 should inject 1-2 digressions per Discussion section, calibrated by discipline.
 
-**Strategy D3: Argument Structure Diversification**
+**Strategy DT3: Argument Structure Diversification**
 
 AI text uses uniform argument trees. Human argumentation embeds:
 - Concessions before claims ("While X is well-established, our data suggest...")
@@ -102,7 +102,7 @@ AI text uses uniform argument trees. Human argumentation embeds:
 - Hedged speculation alongside firm claims
 - Non-linear evidence presentation (conclusion before evidence, or interleaved)
 
-**Strategy D4: Connective Reduction and Variation**
+**Strategy DT4: Connective Reduction and Variation**
 
 Replace explicit formulaic connectives with:
 - Zero-connective transitions (juxtaposition)
@@ -116,18 +116,18 @@ discourse_transformation:
   activation: "Pass 2 (Structural) or Pass 3 (Polish)"
   prerequisite: "Layer 3 complete (S7-S10 resolved)"
   strategies:
-    D1_rhetorical_reorder:
+    DT1_rhetorical_reorder:
       target_sections: ["discussion", "conclusion"]
       min_variants: 4
       selection: "random per section, avoid AI-default sequence"
-    D2_digression_injection:
+    DT2_digression_injection:
       target_sections: ["discussion", "results"]
       count_per_section: "1-2"
       types: ["parenthetical", "retrospective", "methodological"]
-    D3_argument_diversification:
+    DT3_argument_diversification:
       target_sections: ["discussion", "introduction"]
       techniques: ["concession_before_claim", "counter_anticipation", "non_linear_evidence"]
-    D4_connective_variation:
+    DT4_connective_variation:
       target_sections: ["all"]
       max_explicit_connectives_per_paragraph: 1
       replace_with: ["zero_connective", "implicit", "varied_vocabulary"]
@@ -296,8 +296,8 @@ feedback_signals:
     check: "Did any individual metric worsen?"
     burstiness_regressed: "Focus next pass on sentence length variation"
     mtld_regressed: "Inject more unique vocabulary"
-    opener_diversity_regressed: "Apply D3 (paragraph opener variation)"
-    discourse_regressed: "Apply D1 (rhetorical reordering)"
+    opener_diversity_regressed: "Apply DT3 (paragraph opener variation)"
+    discourse_regressed: "Apply DT1 (rhetorical reordering)"
 
   new_patterns_introduced:
     check: "Did G6 introduce new AI patterns?"
@@ -386,10 +386,10 @@ Use the two existing papers (Paper 1: TFSC, Paper 2: IJAIED) plus:
 
 | Task | Deliverable | Effort |
 |------|-------------|--------|
-| Implement D1: Rhetorical move reordering | 4+ variant templates | 3 days |
-| Implement D2: Digression injection | Digression library | 2 days |
-| Implement D3: Argument structure diversification | Concession/counter patterns | 2 days |
-| Implement D4: Connective reduction/variation | Connective replacement rules | 1 day |
+| Implement DT1: Rhetorical move reordering | 4+ variant templates | 3 days |
+| Implement DT2: Digression injection | Digression library | 2 days |
+| Implement DT3: Argument structure diversification | Concession/counter patterns | 2 days |
+| Implement DT4: Connective reduction/variation | Connective replacement rules | 1 day |
 | Update G6 agent prompt with Layer 4 instructions | G6 v3.0 skill file | 2 days |
 
 ### Phase 3: Feedback Loop (Weeks 5-6) — HIGH

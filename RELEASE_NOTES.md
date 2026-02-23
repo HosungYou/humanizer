@@ -1,3 +1,119 @@
+# Release Notes — Humanizer MCP Server v3.0.0
+
+**Date**: 2026-02-23
+**Title**: Discourse Metrics, SUBTLEX Surprisal, and 6-Component Composite Score
+
+---
+
+## Highlights
+
+- **Breaking**: New composite score formula — 6 components (40/15/10/10/15/10) vs 4 components in v2.x
+- **New**: 9 discourse and psycholinguistic metrics (hapax_rate, contraction_density, paragraph_length_variance, surprisal_proxy, surprisal_autocorrelation, connective_diversity, pronoun_density, question_ratio, abstract_noun_ratio)
+- **New**: `humanizer_discourse` MCP tool — standalone discourse and psycholinguistic metric computation
+- **New**: SUBTLEX-US word frequency data bundled at `src/humanizer_mcp/data/subtlex_us.json` for surprisal computation
+- **New**: 3 additional discipline profiles — stem, humanities, social_sciences (total: 7 profiles)
+- **Updated**: All 4 existing tools include discourse metrics in their output
+
+---
+
+## Breaking Changes
+
+### Composite Score Formula Changed
+
+The composite AI probability formula now has 6 components instead of 4. Scores computed by v2.x are **not directly comparable** to v3.0 scores.
+
+**v2.x formula (deprecated)**:
+```
+AI_Probability = (0.60 * pattern_score)
+              + (0.20 * burstiness_penalty)
+              + (0.10 * vocab_diversity_penalty)
+              + (0.10 * structural_penalty)
+```
+
+**v3.0 formula**:
+```
+AI_Probability = (0.40 * pattern_score)
+              + (0.15 * burstiness_penalty)
+              + (0.10 * vocab_diversity_penalty)
+              + (0.10 * structural_penalty)
+              + (0.15 * discourse_penalty)
+              + (0.10 * psycholinguistic_penalty)
+```
+
+Scores from v3.0 will generally be different from v2.x scores on the same text even without any humanization, because the formula weights have changed. Stored baseline scores from v2.x must be recomputed before comparing against v3.0 output.
+
+---
+
+## What's New
+
+### 9 Discourse and Psycholinguistic Metrics
+
+| Metric | Category | Description |
+|--------|----------|-------------|
+| `hapax_rate` | Discourse | Proportion of words appearing exactly once; richer vocabulary = higher value |
+| `contraction_density` | Discourse | Contractions per sentence; human writing uses more contractions |
+| `paragraph_length_variance` | Discourse | Variance in paragraph word counts; low variance is an AI signal |
+| `connective_diversity` | Discourse | TTR of discourse connectives; AI overuses a small set (however, moreover, furthermore) |
+| `surprisal_proxy` | Psycholinguistic | Mean word surprisal via SUBTLEX-US frequency norms; AI favors high-frequency predictable words |
+| `surprisal_autocorrelation` | Psycholinguistic | Lag-1 autocorrelation of per-sentence surprisal; AI text has positive autocorrelation (rhythmically uniform) |
+| `pronoun_density` | Psycholinguistic | First/second person pronouns per sentence; near zero in AI's impersonal register |
+| `question_ratio` | Psycholinguistic | Proportion of question sentences; rhetorical questions are a human signal |
+| `abstract_noun_ratio` | Psycholinguistic | Proportion of abstract nouns (-tion, -ness, -ity, -ism, -ance suffixes); AI favors nominalization-heavy prose |
+
+### `humanizer_discourse` Tool (5th Tool)
+
+New standalone tool for discourse and psycholinguistic analysis:
+
+```
+humanizer_discourse(text, discipline="default", non_native=False)
+```
+
+Returns all 9 discourse/psycholinguistic metrics, per-metric pass/fail against discipline thresholds, and `discourse_penalty` and `psycholinguistic_penalty` values for use in composite scoring. This tool is called by G5 during initial analysis and by G6 after each transformation pass.
+
+### SUBTLEX-US Word Frequency Data
+
+Surprisal computation uses the SUBTLEX-US corpus (Brysbaert & New, 2009) — approximately 74,000 English words from 51 million words of American English subtitles. The frequency data is bundled at `src/humanizer_mcp/data/subtlex_us.json` and included in the wheel via `[tool.hatch.build.targets.wheel] artifacts`. Words not in the corpus receive maximum surprisal (`log2(74001)` ≈ 16.2 bits).
+
+### 3 New Discipline Profiles
+
+| Discipline | Burstiness Threshold | MTLD Threshold |
+|------------|---------------------|----------------|
+| stem | 0.38 | 72 |
+| humanities | 0.50 | 85 |
+| social_sciences | 0.43 | 77 |
+
+Added alongside the existing 4 profiles (default, psychology, management, education). Total: 7 discipline profiles.
+
+### All 4 Existing Tools Updated
+
+`humanizer_metrics`, `humanizer_verify`, `humanizer_diff`, and `humanizer_status` all include the 9 new discourse/psycholinguistic metrics in their output. The `discourse_penalty` and `psycholinguistic_penalty` values are included in composite score breakdowns.
+
+---
+
+## Migration Guide
+
+### Recompute Baseline Scores
+
+Any stored v2.x composite scores must be recomputed using v3.0 before comparing across passes. Run `humanizer_metrics` on the original text after upgrading to establish a v3.0 baseline.
+
+### New Required Field in `humanizer_metrics`
+
+The `discourse_penalty` and `psycholinguistic_penalty` fields are now included in `humanizer_metrics` output. Downstream code that parses the composite score breakdown should be updated to handle 6 components.
+
+### SUBTLEX Data File
+
+The `src/humanizer_mcp/data/subtlex_us.json` file is required at runtime. It is bundled in the package wheel automatically. If running from source, ensure the file is present before starting the server.
+
+---
+
+*Humanizer v3.0.0 — Released 2026-02-23*
+*Diverga v9.3.0 — Discourse Metrics Integration*
+*Repository: https://github.com/HosungYou/humanizer*
+*Diverga plugin: https://github.com/HosungYou/Diverga*
+
+---
+---
+
 # Release Notes — Humanizer MCP Server v2.1.0
 
 **Date**: 2026-02-23
